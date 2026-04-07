@@ -2,6 +2,7 @@
 #include <SFML/Window.hpp>
 #include "objects.hpp"
 #include "config.hpp"
+#include "utils/math.hpp"
 
 
 sf::Vector2f ScreenSpaceToPix(sf::Vector2f screenCoords) {
@@ -14,29 +15,43 @@ sf::Vector2f pixToScreenSpace(sf::Vector2f pixelCoords) {
 
 class Renderer
 {
-	public:
+    public:
 		Renderer(sf::RenderWindow& window)
 			: m_target{window}
 			{}
-		void render(Environment& env)
+		void render(Object& obj)
 		{
-			auto& vertices = env.getVertices();
-			auto& faces	   = env.getFaces();
+			auto& vertices = obj.getVertices();
+			auto& faces	   = obj.getFaces();
 
-			//Rendering Lines
-			sf::VertexArray triangle(sf::PrimitiveType::LineStrip, 4);
-			for (int i = 0; i < 4; i++) {triangle[i].color = sf::Color::Green;}
+			//Rendering faces
+			sf::VertexArray triangle(sf::PrimitiveType::Triangles, 3);
+            sf::VertexArray outline(sf::PrimitiveType::LineStrip, 4);
+			for (int i = 0; i < faces.size(); i++){
+                auto& face = faces[i];
+                if ( vertices[face.v1].location.z > 0 || vertices[face.v2].location.z > 0 || vertices[face.v3].location.z > 0) {
+                    triangle[0].position = ScreenSpaceToPix(vertices[face.v1].project());
+                    triangle[1].position = ScreenSpaceToPix(vertices[face.v2].project());
+                    triangle[2].position = ScreenSpaceToPix(vertices[face.v3].project());
+                    if ( Math::dot(obj.calcNormal(i), {0, 0, 1}) > 0) {continue;} //Facing away from Camera
+                    else {
+                        for (int i = 0; i < 3; i++) {triangle[i].color = sf::Color::Red;}
+                    }
+                    m_target.draw(triangle);
+                }
+			}
+
+            for (int i = 0; i < 4; i++) {outline[i].color = sf::Color::Black;};
 
 			for (auto& face : faces){
-				triangle[0].position = ScreenSpaceToPix(vertices[face.v1].project());
-				triangle[1].position = ScreenSpaceToPix(vertices[face.v2].project());
-				triangle[2].position = ScreenSpaceToPix(vertices[face.v3].project());
-				triangle[3].position = triangle[0].position;
+				outline[0].position = ScreenSpaceToPix(vertices[face.v1].project());
+				outline[1].position = ScreenSpaceToPix(vertices[face.v2].project());
+				outline[2].position = ScreenSpaceToPix(vertices[face.v3].project());
+				outline[3].position = outline[0].position;
 
-				m_target.draw(triangle);
-			}
-		}
-		
-		private:
+				m_target.draw(outline);
+		    }
+        }
+    private:
 		sf::RenderWindow& m_target;
 };
